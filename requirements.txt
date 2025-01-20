@@ -1,0 +1,7 @@
+matplotlib
+neat-python
+numpy
+opencv-python
+paho-mqtt
+pygame
+ultralytics
