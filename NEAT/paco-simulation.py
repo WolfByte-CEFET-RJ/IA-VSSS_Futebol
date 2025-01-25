@@ -2,19 +2,8 @@ import pygame
 import neat
 import random
 import math
-
-# Constants
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-ROBOT_SIZE = 20
-TARGET_RADIUS = 10
+from constants import WIDTH, HEIGHT, SCALE, TARGET_RADIUS, ROBOT_SIZE, WHITE, RED, BLUE, ORANGE
 FPS = 60
-
-# Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
 
 # Initialize Pygame
 pygame.init()
