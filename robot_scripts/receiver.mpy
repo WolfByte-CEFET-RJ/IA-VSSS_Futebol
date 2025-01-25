@@ -1,0 +1,67 @@
+import network
+import time
+from umqtt.simple import MQTTClient
+from machine import Pin
+
+p4 = Pin(4, Pin.OUT)
+
+SSID = 'Redmi Note 11S'
+PASSWORD = 'atilaheytor'
+
+MQTT_BROKER = "192.168.179.66"
+MQTT_PORT = 1883
+MQTT_TOPIC = "robots/robot1/commands"
+
+def conectar_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print('Conectando ao Wi-Fi...')
+        wlan.connect(SSID, PASSWORD)
+        while not wlan.isconnected():
+            time.sleep(0.5)
+    print('Conectado ao Wi-Fi:', wlan.ifconfig())
+
+def on_message(topic, msg):
+    print("Mensagem recebida no topico '{}': {}".format(topic.decode(), msg.decode()))
+    
+    piscadelas = get_numbers(msg.decode())
+    
+    for piscadela in piscadelas:
+      for i in range(piscadela):
+        p4.value(1)
+        time.sleep(0.05)
+        p4.value(0)
+        time.sleep(0.05)
+      time.sleep(2)
+    
+    
+def get_numbers(msg):
+  number = msg.strip('Data:[] ')
+  mylist = number.split(',')
+  for i, numero in enumerate(mylist):
+    mylist [i] = int(numero)
+  return mylist
+  
+def conectar_mqtt():
+    client = MQTTClient('esp8266', MQTT_BROKER)
+    client.set_callback(on_message)
+    client.connect()
+    client.subscribe(MQTT_TOPIC)
+    print(f'Inscrito no topico: {MQTT_TOPIC}')
+    return client
+
+def main():
+    conectar_wifi()
+    client = conectar_mqtt()
+   
+    start = time.time()
+    while True:
+        sec = time.time()
+        if sec - start >= 1:
+          start = time.time()
+          print("Aguardando mensagem...")
+        client.check_msg()
+        time.sleep(0.1) 
+
+main()

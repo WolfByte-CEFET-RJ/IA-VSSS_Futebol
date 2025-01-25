@@ -13,7 +13,7 @@ def send_to_robot(msg, robotID):
 # print(generate_data())
 
 # Broker details
-BROKER = "localhost"
+BROKER = input("Insira o endereço IP do broker: ")
 PORT = 1883
 TOPICS = ["robots/robot1/commands",
           "robots/robot2/commands",
@@ -22,9 +22,11 @@ TOPICS = ["robots/robot1/commands",
 # Create MQTT client instance
 client = paho.Client()
 
+client.reconnect_delay_set(min_delay=1, max_delay=5)  # Exponential backoff (1s to 30s)
+
 # Connect to the broker
 client.connect(BROKER, PORT)
-
+print(f"Connected to: {BROKER}")
 
 
 '''# Publishes the message
@@ -35,12 +37,14 @@ print(f"Published: {message}")
 client.disconnect()'''
 
 # Continuously publishes data
+client.loop_start()
 try:
     while True:
         for i in range(3):
             message = f"Data: {generate_data()}"
             send_to_robot(message, i + 1)
-        time.sleep(2)  # Adjust the interval as needed
+        print("-" * 48)
+        time.sleep(10)  # Adjust the interval as needed
 except KeyboardInterrupt:
     print("Publisher stopped.")
     client.disconnect()
