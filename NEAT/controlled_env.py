@@ -1,7 +1,6 @@
 import pygame
 import os
 import random
-import sys
 
 import math
 import time
@@ -11,7 +10,7 @@ pygame.init()
 # GCs
 
 SCREEN_HEIGHT = 780
-SCREEN_WIDTH = 900
+SCREEN_WIDTH = 1020
 
 SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 ROBOT = pygame.Rect(400, 400, 45, 45)
@@ -21,17 +20,15 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 ORANGE = (255, 127, 0)
 
-# Square properties
-square_size = 50
-x, y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2  # Initial position
-angle = 0  # Rotation in radians
-
-# Wheel speeds
-left_wheel_speed = 0
-right_wheel_speed = 0
+# Robot
+square_size = 45
+wheel_speed = 35
 
 # Speed increment for wheels
 speed_increment = 10
+
+# Field
+field = pygame.image.load(os.path.join('images', 'campo_VSSS.png'))
 
 # Time properties
 clock = pygame.time.Clock()
@@ -88,15 +85,8 @@ while running:
     # Update agents and check collisions
     keys = pygame.key.get_pressed()
     # Interpret NN output for agent movement
-    left_speed, right_speed = 0, 0
-    if keys[pygame.K_a]:
-        left_speed += 25
-    elif keys[pygame.K_z]:
-        left_speed -= 25
-    if keys[pygame.K_d]:
-        right_speed += 25
-    elif keys[pygame.K_c]:
-        right_speed -= 25
+    left_speed = (int(keys[pygame.K_e]) - int(keys[pygame.K_a])) * wheel_speed
+    right_speed = (int(keys[pygame.K_q]) - int(keys[pygame.K_d])) * wheel_speed
     
     def pos_angle(angle):
         if angle < 0:
@@ -107,11 +97,16 @@ while running:
         agent.move(left_speed, right_speed, dt, SCREEN_WIDTH, SCREEN_HEIGHT)
         agent.update_objective_distance(objectives)
         ag = pos_angle(math.degrees(math.atan2(agent.dist[1], agent.dist[0])) - 180)
+        angle_diff = pos_angle(math.degrees(agent.theta)) - ag
+        if angle_diff > 180:
+            angle_diff = 360 - angle_diff
+        elif angle_diff < -180:
+            angle_diff = 360 + angle_diff
         if time.time() - timer >= 1:
             timer = time.time()
             print('-' * 30)
             print(f"ROBOT ANGLE: {pos_angle(math.degrees(agent.theta))}\n" + \
-                  f"ANGLE WITH OBJECTIVE: {ag}\nDIFF: {pos_angle(math.degrees(agent.theta)) - ag}")
+                  f"ANGLE WITH OBJECTIVE: {ag}\nDIFF: {angle_diff}")
 
 
         # Check for collisions
@@ -126,12 +121,21 @@ while running:
             agents.pop(i)'''
 
     # Draw everything
-    SCREEN.fill(WHITE)
+    #SCREEN.fill(WHITE)
+    SCREEN.blit(field, (0, 0))
     for agent in agents:
         agent.draw(SCREEN)
         pygame.draw.circle(SCREEN, agent.color, objectives[agent.id], 12, width=3)
         pygame.draw.line(SCREEN, agent.color, objectives[agent.id], (agent.x, agent.y))
 
+    # Boardas do campo
+    # TODO: Gerar Colisão
+    # Apenas gerando os poligonos como exemplo atualmente
+    pygame.draw.polygon(SCREEN, ORANGE, ((0,0),(102,0),(60,42),(60,270),(0,270)))
+    pygame.draw.polygon(SCREEN, ORANGE, ((0,510),(60,510),(60,738),(102,780),(0,780)))
+    pygame.draw.polygon(SCREEN, ORANGE, ((918,0),(1020,0),(1020,270),(960,270),(960,42)))
+    pygame.draw.polygon(SCREEN, ORANGE, ((960,510),(1020,510),(1020,780),(918,780),(960,738)))
+    #pygame.draw.polygon(SCREEN, ORANGE, ((102,0),(918,0),(960,42),(960,270),(1020,270),(1020,510),(960,510),(960,738),(918,780),(102,780),(60,738),(60,510),(0,510),(0,270),(60,270),(60,42)))
 
     pygame.display.flip()
     clock.tick(60)
