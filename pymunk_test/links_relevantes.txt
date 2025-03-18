@@ -1,0 +1,11 @@
+Tutorial implementação de carro de corrida em simulação top down (em C++, mas dá pra aplicar as ideias):
+https://www.iforce2d.net/b2dtut/top-down-car
+
+Simução de navio top-down:
+https://github.com/rdesc/AUTO-IceNav/blob/main/ship_ice_planner/utils/sim_utils.py
+*Em apply_drag_from_water, também cita esses links:
+    - https://stackoverflow.com/a/44530585
+    - https://physics.stackexchange.com/a/651758
+
+    Buoyancy and fluid drag example
+    https://github.com/slembcke/Chipmunk2D/blob/master/demo/Buoyancy.c
