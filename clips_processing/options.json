@@ -1,0 +1,1 @@
+{"change_point_threshold": 0.5, "window_size":12, "low_threshold": 150, "high_threshold": 1300, "skip_frames":3, "skip_frames_save":5, "jump_seconds": 10, "y_limit": [0, 3000]}
