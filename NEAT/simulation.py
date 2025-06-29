@@ -5,15 +5,31 @@ import random
 import time
 import colorsys
 import numpy
+import ctypes
+import configparser
 
 import agent as AGT
+import environment as ENV
+
+# Set DPI Awareness  (Windows 10 and 8)
+errorCode = ctypes.windll.shcore.SetProcessDpiAwareness(2)
+
+SIM_CONFIG = configparser.ConfigParser()
+SIM_CONFIG.read(r'NEAT\simulation_config.ini')
+
+print("Sections found:", SIM_CONFIG.sections())
+
+SCREEN_SCALE = SIM_CONFIG.getint('SCALING', 'dpi_Scaling_factor') * SIM_CONFIG.getint('SCALING', 'psi_Scaling_factor')
+WIDTH = SIM_CONFIG.getint('ENVIRONMENT', 'env_width') * SCREEN_SCALE
+HEIGHT = SIM_CONFIG.getint('ENVIRONMENT', 'env_height') * SCREEN_SCALE
 
 # Initialize Pygame
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 900, 780
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+environment = ENV.StandardEnv(WIDTH, HEIGHT)
+screen = environment.get_screen()
+
 pygame.display.set_caption("Agents and Objectives")
 
 
@@ -24,10 +40,11 @@ BLUE = (0, 0, 255)
 ORANGE = (255, 127, 0)
 
 # Agent properties
-agent_size = 45
+agent_size = 45 * SCREEN_SCALE
+agent_speed = 50 * SCREEN_SCALE
 
 # Objective properties
-objective_radius = 12
+objective_radius = 12 * SCREEN_SCALE
 
 # Time properties
 clock = pygame.time.Clock()
@@ -47,8 +64,8 @@ def positive_angle(angle):
 
 def spawn_objective():
     """Spawn an objective at a random position."""
-    x = random.choice([i for i in range(0, WIDTH) if not ((WIDTH / 2) - 100 > i > (WIDTH / 2) + 100)])
-    y = random.choice([i for i in range(0, HEIGHT) if not ((HEIGHT / 2) - 100 > i > (HEIGHT / 2) + 100)])
+    x = random.choice([i for i in range(0, WIDTH) if not ((WIDTH / 2) - 100*SCREEN_SCALE > i > (WIDTH / 2) + 100*SCREEN_SCALE)])
+    y = random.choice([i for i in range(0, HEIGHT) if not ((HEIGHT / 2) - 100*SCREEN_SCALE > i > (HEIGHT / 2) + 100*SCREEN_SCALE)])
 
     return (x, y)
 
@@ -89,12 +106,12 @@ def hsv2rgb(h,s,v):
 
 def draw_scoreboard(screen, agents, ge, time_seconds, time_max, gen):
     """Draw a scoreboard with agent colors and scores."""
-    font = pygame.font.Font(None, 13)  # Default font, size 24
-    time_font = pygame.font.Font(None, 25)
-    x_offset = 10  # Starting x-position for the scoreboard
-    y_offset = 10  # Starting y-position for the scoreboard
-    square_size = 13  # Size of the color square
-    spacing = 2  # Space between squares and text
+    font = pygame.font.Font(None, 13 * SCREEN_SCALE)
+    time_font = pygame.font.Font(None, 23 * SCREEN_SCALE)
+    x_offset = 10 * SCREEN_SCALE  # Starting x-position for the scoreboard
+    y_offset = 10 * SCREEN_SCALE  # Starting y-position for the scoreboard
+    square_size = 13 * SCREEN_SCALE  # Size of the color square
+    spacing = 2 * SCREEN_SCALE  # Space between squares and text 
 
     for i, agent in enumerate(agents):
         # Draw the color square
@@ -106,25 +123,14 @@ def draw_scoreboard(screen, agents, ge, time_seconds, time_max, gen):
             render_text += f" - SCORED {agent.score}!"
         score_text = font.render(render_text, True, (255, 255, 255))
         screen.blit(score_text, (x_offset + square_size + spacing, y_offset))
-        print(time_max - time_seconds)
-        time_text = time_font.render(f"Gen. {gen} - Timer: " + str(time_max - time_seconds), True, (127, 127, 127))
-        screen.blit(time_text, (WIDTH - 150, HEIGHT - 50))
+        time_text = time_font.render(f"Gen. {gen} - Timer: " + str(time_max - time_seconds), True, (255, 255, 255))
+        screen.blit(time_text, (WIDTH - 150 * SCREEN_SCALE, HEIGHT - 50 * SCREEN_SCALE))
 
         # Move to the next line for the next agent
         y_offset += square_size + spacing
 
-def eval_genomes(genomes, config):
-    global dt, agents, objectives, ge, nets, gen
-
-    gen += 1
-
-    # Timer variables
-    generation_duration = 6  # Time in seconds per generation
-    start_time = time.time()
-
-    # Initialize agents, genomes, and neural networks
+def make_population(genomes, config):
     agents = []
-    objectives = {}
     ge = []
     nets = []
     h = 0
@@ -132,33 +138,55 @@ def eval_genomes(genomes, config):
         
         hues = numpy.linspace(0, 0.9, len(genomes))
  
-        agents.append(AGT.DDR(WIDTH // 2, HEIGHT // 2, hsv2rgb(hues[h], 1, 1), agent_size, agent_size, len(agents)))
+        agents.append(AGT._DDR(WIDTH // 2, HEIGHT // 2,
+                              hsv2rgb(hues[h], 1, 1),
+                              agent_size, agent_size,
+                              len(agents), 2))
         h += 1
         ge.append(genome)
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         nets.append(net)
         genome.fitness = 0
 
+    return agents, ge, nets
+
+def initialize_objectives(agents):
     # Assign objectives
+    objectives = {}
+
     for agent in agents:
         objectives[agent.id] = spawn_objective()
         agent.update_objective_distance(objectives)
         agent.last_dist = math.sqrt(agent.dist[0] ** 2 + agent.dist[1] ** 2)
 
+    return objectives
+
+def eval_genomes(genomes, config):
+    global dt, agents, objectives, ge, nets, gen
+
+    gen += 1
+
+    # Timer variables
+    generation_duration = 15  # Time in seconds per generation
+    start_time = time.time()
+
+    # Initialize agents, genomes, and neural networks
+    agents, ge, nets = make_population(genomes, config)
+
+    # Initialize objectives
+    objectives = initialize_objectives(agents)
+
     running = True
     timer = 0
+    
     while running:
         # Check if generation duration is over
         last_time = math.floor(timer)
         timer = time.time() - start_time
 
         if last_time != math.floor(timer):
-            for i, agent in enumerate(agents):
-                '''ge[i].fitness -= 100 - agent.speeds[0] - agent.speeds[1]'''
             print(f"{math.floor(timer)}/{generation_duration} seconds elapsed.")
 
-            
-        
         if timer >= generation_duration:
             break  # Exit the loop to move to the next generation
 
@@ -184,6 +212,9 @@ def eval_genomes(genomes, config):
 
             if abs(agent.last_dist - dist_to_obj) < 0.1:  # Minimal progress
                 ge[i].fitness -= 5  # Penalize stagnation
+
+            if abs(agent.vl - agent.vr) > 40:
+                ge[i].fitness -= 10  # Penalty for rotating too much
             
             ag = positive_angle(math.degrees(math.atan2(agent.dist[1], agent.dist[0])) - 180)
 
@@ -195,7 +226,7 @@ def eval_genomes(genomes, config):
             ))
 
             # Interpret NN output for agent movement
-            if output[0] > 0.5:
+            ''''if output[0] > 0.5:
                 left_speed = 45
             else:
                 left_speed = -45
@@ -203,9 +234,9 @@ def eval_genomes(genomes, config):
             if output[1] > 0.5:
                 right_speed = 45
             else:
-                right_speed = -45
+                right_speed = -45'''
             
-            agent.move(left_speed, right_speed, dt, WIDTH, HEIGHT)
+            agent.move(output[0] * 180 * SCREEN_SCALE, output[1] * 180 * SCREEN_SCALE, dt, WIDTH, HEIGHT)
 
             if agent.clamped:
                 ge[i].fitness -= 2
@@ -214,8 +245,12 @@ def eval_genomes(genomes, config):
             # Check for collisions
             if check_collision(agent, objectives[agent.id]):
                 objectives[agent.id] = spawn_objective()
-                ge[i].fitness += 5000  # Reward the genome for reaching the objective
-                agent.score += 1
+                ag = positive_angle(math.degrees(math.atan2(agent.dist[1], agent.dist[0])) - 180)
+
+                phi = abs(ag - positive_angle(math.degrees(agent.theta)))
+                if phi < 20:
+                    ge[i].fitness += 5000  # Reward the genome for reaching the objective
+                    agent.score += 1
 
             
             
@@ -224,7 +259,7 @@ def eval_genomes(genomes, config):
                 agents.pop(i)'''
 
         # Draw everything
-        screen.fill((0, 0, 0))
+        screen.fill((65, 65, 65))
         for agent in agents:
             agent.draw(screen)
             pygame.draw.circle(screen, agent.color, objectives[agent.id], objective_radius, width=3)
